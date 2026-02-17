@@ -1,0 +1,457 @@
+{
+  "name": "AI_novel_creator",
+  "nodes": [
+    {
+      "parameters": {},
+      "type": "n8n-nodes-base.manualTrigger",
+      "typeVersion": 1,
+      "position": [
+        -1056,
+        592
+      ],
+      "id": "888b40b4-0f8c-4d98-a31f-3375f504b520",
+      "name": "When clicking ‘Execute workflow’"
+    },
+    {
+      "parameters": {
+        "tableId": "finished_chapter",
+        "fieldsUi": {
+          "fieldValues": [
+            {
+              "fieldId": "content",
+              "fieldValue": "={{ $json.content }}"
+            },
+            {
+              "fieldId": "metadata",
+              "fieldValue": "{{ $node[\"Basic LLM Chain\"].json[\"text\"] }}"
+            },
+            {
+              "fieldId": "chapter_no",
+              "fieldValue": "={{ ($json.chapter_no ? Number($json.chapter_no) : 0) }}\n"
+            },
+            {
+              "fieldId": "summary",
+              "fieldValue": "={{ $json.summary }}"
+            },
+            {
+              "fieldId": "title",
+              "fieldValue": "={{ $json.title }}"
+            }
+          ]
+        }
+      },
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [
+        784,
+        416
+      ],
+      "id": "4f4c1e6c-c13f-4c77-844c-6cb92b46f473",
+      "name": "Create a row",
+      "credentials": {
+        "supabaseApi": {
+          "id": "W6v2gWNr3yJPDUdc",
+          "name": "Supabase account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "update",
+        "documentURL": "YOUR_DOC_LINK",
+        "actionsUi": {
+          "actionFields": [
+            {
+              "action": "insert",
+              "text": "={{ $json.content }}"
+            }
+          ]
+        }
+      },
+      "type": "n8n-nodes-base.googleDocs",
+      "typeVersion": 2,
+      "position": [
+        1008,
+        416
+      ],
+      "id": "78aae72e-fba8-40b7-96ce-d1aa797a8899",
+      "name": "Update a document",
+      "credentials": {
+        "googleDocsOAuth2Api": {
+          "id": "uBN5L9YYfRiyhdnp",
+          "name": "Google Docs account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "0fc6ab14-9052-4f07-b4d9-e995266a87c9",
+              "name": "title",
+              "value": "={{ $json.title }}",
+              "type": "string"
+            },
+            {
+              "id": "d448452b-ca1c-4c82-a14b-3987790fa49c",
+              "name": "chapter_no",
+              "value": "={{ $json.chapter_no }}",
+              "type": "number"
+            },
+            {
+              "id": "e56bed8e-ee8a-4383-8fed-154d46acd2c6",
+              "name": "summary",
+              "value": "={{ $json.summary }}",
+              "type": "string"
+            },
+            {
+              "id": "b3bb78fb-3fff-4662-b2c5-29e27bc0e51e",
+              "name": "content",
+              "value": "={{ $json.content }}",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        560,
+        416
+      ],
+      "id": "65aa46c2-1ce3-4c20-9429-7c8d407f1e07",
+      "name": "Edit Fields1"
+    },
+    {
+      "parameters": {
+        "jsCode": "// 嘗試抓出 AI Agent 真正的文字輸出\nconst raw =\n  $json.output ??\n  $json.text ??\n  $json.message ??\n  $json.data ??\n  $json.result ??\n  JSON.stringify($json);\n\n// 強制轉字串\nconst s = String(raw);\n\n// 只保留第一個 { 到最後一個 }\nconst start = s.indexOf(\"{\");\nconst end = s.lastIndexOf(\"}\");\n\nif (start === -1 || end === -1) {\n  throw new Error(\"No JSON object found in AI output\");\n}\n\nconst jsonStr = s.slice(start, end + 1);\n\nlet obj;\ntry {\n  obj = JSON.parse(jsonStr);\n} catch (e) {\n  throw new Error(\"JSON parse failed: \" + e.message + \"\\n\" + jsonStr.slice(0, 300));\n}\n\n// 回傳給下一個節點\nreturn [\n  {\n    json: {\n      title: obj.title,\n      chapter_no: Number(obj.chapter_no),\n      summary: obj.summary,\n      content: obj.content,\n    }\n  }\n];\n"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        336,
+        416
+      ],
+      "id": "27047e90-4399-418f-ac53-97dd433e1056",
+      "name": "Code in JavaScript"
+    },
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "=上一章完整內容（請必須直接接續，不要重寫）：\n{{ $json.last_content }}\n\n以下是過往章節摘要（只用於伏筆與設定一致性，不要拿來當主線）：\n{{ JSON.stringify($json.summaries) }}\n\n請撰寫下一章...\n\n- 內容至少 2000 字（你想更長也可以）\n- 推理邏輯清楚：線索→推論→行動→結果\n- 保留伏筆，結尾留鉤子\n- 同時產出本章 summary（20~50字）\n\n請輸出 JSON：\n{\n  \"chapter_no\": <number>,\n  \"title\": \"<本章標題>\",\n  \"content\": \"<本章正文>\",\n  \"summary\": \"<本章摘要>\"\n}\n",
+        "options": {
+          "systemMessage": "你是一位專業的長篇網路小說作者，擅長恐怖、懸疑、規則怪談與心理壓迫感描寫。以及擅於描寫主角破解怪談時運用人心以及智謀的策略。需要有一個戰力體系或事件或遊戲的難度指標\n極重要:\n你負責「續寫下一章小說」，必須嚴格延續既有劇情與人物狀態。\n\n【你的資料來源分為三層，重要性由高到低】\n1️⃣ 上一章完整內容（主線，必須直接接續）\n2️⃣ 已完成章節摘要（輔助，僅用於伏筆與設定一致）\n3️⃣ RAG 搜索結果（風格參考，不得抄襲）\n\n────────────────\n【RAG 使用規則（非常重要）】\n\n你會從 ref_novel 向量資料庫中取得若干「相似片段」。\n這些片段【只能用來學習風格】，包含：\n- 節奏（快慢、段落長短）\n- 氛圍（壓迫感、詭異感、留白方式）\n- 描寫技巧（感官描寫、心理描寫比例）\n- 敘事手法（第三人稱 / 近距離視角 / 漸進揭露）\n\n❌ 嚴格禁止以下行為：\n- 直接複製或改寫任何一句原文\n- 使用 RAG 片段中的【人物名稱】\n- 使用 RAG 片段中的【地名、遊戲名、組織名、專有名詞】\n- 沿用任何可被辨識的世界觀設定\n\n✅ 你只能「抽象化風格」，用全新的內容重寫。\n\n如果 RAG 片段與目前劇情衝突，**一律以主線劇情為準**。\n\n────────────────\n【創作硬性規則】\n\n- 不得重寫、摘要或回顧上一章內容\n- 劇情必須從上一章最後一個情境「自然接續」\n- 所有角色行為必須符合前文邏輯\n- 不能突然出現未鋪墊的關鍵設定\n- 結尾必須留下新的懸念或壓迫點\n\n────────────────\n【輸出格式規則（必須遵守）】\n\n你只能輸出 JSON，不得包含任何多餘文字或說明。\n\nJSON 結構如下：\n{\n  \"chapter_no\": number,\n  \"title\": string,\n  \"content\": string,\n  \"summary\": string\n}\n\n\n\n如果你不確定某個詞是否來自 RAG 片段，請改用模糊描述或自行創造全新名詞。\n\n"
+        }
+      },
+      "type": "@n8n/n8n-nodes-langchain.agent",
+      "typeVersion": 3.1,
+      "position": [
+        -128,
+        416
+      ],
+      "id": "9e174b1a-02fc-49ba-83d9-ae24f1b0c3fe",
+      "name": "AI Agent1"
+    },
+    {
+      "parameters": {
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.embeddingsOpenAi",
+      "typeVersion": 1.2,
+      "position": [
+        -32,
+        864
+      ],
+      "id": "4f284c4f-fc1e-49d8-afcb-3ae191e304b9",
+      "name": "Embeddings OpenAI",
+      "credentials": {
+        "openAiApi": {
+          "id": "vHDzX4Q2B9nH7a4C",
+          "name": "OpenAi account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "sortFieldsUi": {
+          "sortField": [
+            {
+              "fieldName": "id"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.sort",
+      "typeVersion": 1,
+      "position": [
+        -608,
+        416
+      ],
+      "id": "78a0febc-513d-4b25-8528-b940cfff083e",
+      "name": "Sort"
+    },
+    {
+      "parameters": {
+        "operation": "getAll",
+        "tableId": "finished_chapter",
+        "returnAll": true
+      },
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [
+        -832,
+        592
+      ],
+      "id": "25638111-d6c1-416e-abd4-27950d05840b",
+      "name": "Get many rows",
+      "credentials": {
+        "supabaseApi": {
+          "id": "W6v2gWNr3yJPDUdc",
+          "name": "Supabase account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "const last = items[items.length - 1]?.json;\n\nreturn [{\n  json: {\n    last_chapter_no: last?.chapter_no ?? null,\n    last_title: last?.title ?? \"\",\n    last_content: last?.content ?? \"\",\n    // 也可以把 summaries 一起帶著（當伏筆）\n    summaries: items.map(i => ({\n      chapter_no: i.json.chapter_no,\n      summary: i.json.summary ?? \"\"\n    }))\n  }\n}];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -384,
+        416
+      ],
+      "id": "6bed333f-95c2-45fc-81b2-f5933a7176b6",
+      "name": "Code in JavaScript1"
+    },
+    {
+      "parameters": {
+        "mode": "retrieve-as-tool",
+        "toolDescription": "取得最適合當下情況的資料作參考",
+        "tableName": {
+          "__rl": true,
+          "value": "ref_novel",
+          "mode": "list",
+          "cachedResultName": "ref_novel"
+        },
+        "topK": 2,
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.vectorStoreSupabase",
+      "typeVersion": 1.3,
+      "position": [
+        -32,
+        640
+      ],
+      "id": "b749053a-df5b-4fa7-a651-eb7cb707b944",
+      "name": "Supabase Vector Store",
+      "credentials": {
+        "supabaseApi": {
+          "id": "W6v2gWNr3yJPDUdc",
+          "name": "Supabase account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "model": {
+          "__rl": true,
+          "mode": "list",
+          "value": "claude-sonnet-4-5-20250929",
+          "cachedResultName": "Claude Sonnet 4.5"
+        },
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.lmChatAnthropic",
+      "typeVersion": 1.3,
+      "position": [
+        -160,
+        640
+      ],
+      "id": "d409b4b5-79f5-4e38-8129-074f93ec7596",
+      "name": "Anthropic Chat Model",
+      "credentials": {
+        "anthropicApi": {
+          "id": "JNxtPuIMS5pI7LIN",
+          "name": "Anthropic account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "batchSize": 5,
+        "options": {}
+      },
+      "type": "n8n-nodes-base.splitInBatches",
+      "typeVersion": 3,
+      "position": [
+        1232,
+        592
+      ],
+      "id": "5e395e7f-9060-474c-8850-179a8c670a33",
+      "name": "Loop Over Items"
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "When clicking ‘Execute workflow’": {
+      "main": [
+        [
+          {
+            "node": "Get many rows",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Create a row": {
+      "main": [
+        [
+          {
+            "node": "Update a document",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Update a document": {
+      "main": [
+        [
+          {
+            "node": "Loop Over Items",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Edit Fields1": {
+      "main": [
+        [
+          {
+            "node": "Create a row",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Code in JavaScript": {
+      "main": [
+        [
+          {
+            "node": "Edit Fields1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "AI Agent1": {
+      "main": [
+        [
+          {
+            "node": "Code in JavaScript",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Embeddings OpenAI": {
+      "ai_embedding": [
+        [
+          {
+            "node": "Supabase Vector Store",
+            "type": "ai_embedding",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Sort": {
+      "main": [
+        [
+          {
+            "node": "Code in JavaScript1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get many rows": {
+      "main": [
+        [
+          {
+            "node": "Sort",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Code in JavaScript1": {
+      "main": [
+        [
+          {
+            "node": "AI Agent1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Supabase Vector Store": {
+      "ai_tool": [
+        [
+          {
+            "node": "AI Agent1",
+            "type": "ai_tool",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Anthropic Chat Model": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "AI Agent1",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Loop Over Items": {
+      "main": [
+        [],
+        [
+          {
+            "node": "Get many rows",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1",
+    "availableInMCP": false
+  },
+  "versionId": "c2adf8d0-bdb1-48a7-b6e2-a1809d2a23c2",
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "a8a44589685b31f306fffc1cc0f223708389681b27e9129ea91741c62ea7c19b"
+  },
+  "id": "p3PuAg9bK2bZuBvSygNLA",
+  "tags": []
+}
