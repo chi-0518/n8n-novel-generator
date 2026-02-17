@@ -1,0 +1,178 @@
+{
+  "name": "RAG_of_AInovel",
+  "nodes": [
+    {
+      "parameters": {
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.textSplitterRecursiveCharacterTextSplitter",
+      "typeVersion": 1,
+      "position": [
+        320,
+        224
+      ],
+      "id": "ef3b2740-b838-431d-ae0a-d23ab5e80050",
+      "name": "Recursive Character Text Splitter"
+    },
+    {
+      "parameters": {
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.embeddingsOpenAi",
+      "typeVersion": 1.2,
+      "position": [
+        32,
+        80
+      ],
+      "id": "7bbe7496-28f5-4ac1-962c-92eb1c2f3208",
+      "name": "Embeddings OpenAI",
+      "credentials": {
+        "openAiApi": {
+          "id": "vHDzX4Q2B9nH7a4C",
+          "name": "OpenAi account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "mode": "insert",
+        "tableName": {
+          "__rl": true,
+          "value": "ref_novel",
+          "mode": "list",
+          "cachedResultName": "ref_novel"
+        },
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.vectorStoreSupabase",
+      "typeVersion": 1.3,
+      "position": [
+        96,
+        -112
+      ],
+      "id": "6f186d40-89d8-411a-a648-f285811cf338",
+      "name": "Supabase Vector Store",
+      "credentials": {
+        "supabaseApi": {
+          "id": "W6v2gWNr3yJPDUdc",
+          "name": "Supabase account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "textSplittingMode": "custom",
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.documentDefaultDataLoader",
+      "typeVersion": 1.1,
+      "position": [
+        224,
+        48
+      ],
+      "id": "459847d7-4735-4a63-8d79-e06163b7e0b9",
+      "name": "Default Data Loader"
+    },
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "c870eaed-e9f1-4c02-b242-481e4ba9c079",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2.1,
+      "position": [
+        -592,
+        -80
+      ],
+      "id": "e36fa10e-94b6-4a5e-9e24-836d33177188",
+      "name": "Webhook",
+      "webhookId": "c870eaed-e9f1-4c02-b242-481e4ba9c079"
+    },
+    {
+      "parameters": {
+        "operation": "text",
+        "destinationKey": "text",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.extractFromFile",
+      "typeVersion": 1.1,
+      "position": [
+        -320,
+        -80
+      ],
+      "id": "986c9800-7aff-4c6a-8888-f7dbe6e3cdf6",
+      "name": "Extract from File"
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "Embeddings OpenAI": {
+      "ai_embedding": [
+        [
+          {
+            "node": "Supabase Vector Store",
+            "type": "ai_embedding",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Default Data Loader": {
+      "ai_document": [
+        [
+          {
+            "node": "Supabase Vector Store",
+            "type": "ai_document",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Recursive Character Text Splitter": {
+      "ai_textSplitter": [
+        [
+          {
+            "node": "Default Data Loader",
+            "type": "ai_textSplitter",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Webhook": {
+      "main": [
+        [
+          {
+            "node": "Extract from File",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Extract from File": {
+      "main": [
+        [
+          {
+            "node": "Supabase Vector Store",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1",
+    "availableInMCP": false
+  },
+  "versionId": "b0a82d12-56a3-4848-aef8-c0e3c978485e",
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "a8a44589685b31f306fffc1cc0f223708389681b27e9129ea91741c62ea7c19b"
+  },
+  "id": "lQb64lnE1IW2czOZ3DrO_",
+  "tags": []
+}
